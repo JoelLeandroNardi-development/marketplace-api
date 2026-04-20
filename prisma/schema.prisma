@@ -18,6 +18,12 @@ enum OrderStatus {
   SHIPPED
 }
 
+enum LedgerEntryType {
+  DEPOSIT
+  DEBIT
+  REFUND
+}
+
 model User {
   id           String      @id @default(uuid())
   email        String      @unique
@@ -29,6 +35,7 @@ model User {
 
   cart         Cart?
   orders       Order[]
+  wallet       Wallet?
 }
 
 model Category {
@@ -89,11 +96,13 @@ model Order {
   userId      String
   status      OrderStatus  @default(PENDING)
   totalAmount Decimal      @db.Decimal(10, 2)
+  idempotencyKey String?   @unique
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   user        User         @relation(fields: [userId], references: [id])
   items       OrderItem[]
+  ledgerEntries LedgerEntry[]
 }
 
 model OrderItem {
@@ -106,4 +115,33 @@ model OrderItem {
 
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product  @relation(fields: [productId], references: [id])
+}
+
+model Wallet {
+  id        String      @id @default(uuid())
+  userId    String      @unique
+  balance   Decimal     @default(0) @db.Decimal(12, 2)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   LedgerEntry[]
+}
+
+model LedgerEntry {
+  id             String          @id @default(uuid())
+  walletId       String
+  orderId        String?
+  type           LedgerEntryType
+  amount         Decimal         @db.Decimal(12, 2)
+  balanceAfter   Decimal         @db.Decimal(12, 2)
+  idempotencyKey String?         @unique
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+
+  wallet         Wallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  order          Order?          @relation(fields: [orderId], references: [id])
+
+  @@index([walletId])
+  @@index([orderId])
 }

@@ -2,21 +2,26 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
+  app.use(requestIdMiddleware);
 
   app.useGlobalPipes(
-    new ValidationPipe(
-      {
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      },
-    ),
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new RequestLoggingInterceptor());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Marketplace API')
@@ -32,4 +37,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();
