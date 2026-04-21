@@ -3,24 +3,39 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class QueryProductsDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Search term matched against product name and description',
+    example: 'keyboard',
+  })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Filter products by category id',
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({
+    description: 'One-based page number',
+    default: 1,
+    minimum: 1,
+  })
   @Type(() => Number)
   @IsOptional()
   @IsInt()
   @Min(1)
   page: number = 1;
 
-  @ApiPropertyOptional({ default: 10 })
+  @ApiPropertyOptional({
+    description: 'Number of items per page (max 100)',
+    default: 10,
+    minimum: 1,
+    maximum: 100,
+  })
   @Type(() => Number)
   @IsOptional()
   @IsInt()

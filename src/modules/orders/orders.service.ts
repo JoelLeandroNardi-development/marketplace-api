@@ -14,12 +14,21 @@ type CheckoutCart = Prisma.CartGetPayload<{
 }>;
 
 type Wallet = Prisma.WalletGetPayload<Record<string, never>>;
+export type OrderWithItemsAndLedger = Prisma.OrderGetPayload<{
+  include: {
+    items: true;
+    ledgerEntries: true;
+  };
+}>;
 
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createFromCart(userId: string, idempotencyKey: string) {
+  async createFromCart(
+    userId: string,
+    idempotencyKey: string,
+  ): Promise<OrderWithItemsAndLedger> {
     const scopedIdempotencyKey = buildScopedIdempotencyKey(
       'checkout',
       idempotencyKey,
@@ -60,14 +69,14 @@ export class OrdersService {
       );
       await this.clearCart(tx, cart.id);
 
-      return order;
+      return this.getOrderWithRelationsOrThrow(tx, order.id);
     });
   }
 
   private findExistingOrder(
     tx: Prisma.TransactionClient,
     idempotencyKey: string,
-  ) {
+  ): Promise<OrderWithItemsAndLedger | null> {
     return tx.order.findUnique({
       where: { idempotencyKey },
       include: {
@@ -80,7 +89,7 @@ export class OrdersService {
   private async getCartForCheckoutOrThrow(
     tx: Prisma.TransactionClient,
     userId: string,
-  ) {
+  ): Promise<CheckoutCart> {
     const cart = await tx.cart.findUnique({
       where: { userId },
       include: {
@@ -99,7 +108,7 @@ export class OrdersService {
     return cart;
   }
 
-  private calculateCartTotal(cart: CheckoutCart) {
+  private calculateCartTotal(cart: CheckoutCart): Prisma.Decimal {
     return cart.items.reduce((total, item) => {
       if (!item.product.isActive) {
         throw new BadRequestException(
@@ -111,7 +120,10 @@ export class OrdersService {
     }, new Prisma.Decimal(0));
   }
 
-  private async getWalletOrThrow(tx: Prisma.TransactionClient, userId: string) {
+  private async getWalletOrThrow(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<Wallet> {
     const wallet = await tx.wallet.findUnique({
       where: { userId },
     });
@@ -126,7 +138,7 @@ export class OrdersService {
   private async decrementStockOrThrow(
     tx: Prisma.TransactionClient,
     cart: CheckoutCart,
-  ) {
+  ): Promise<void> {
     for (const item of cart.items) {
       const updateResult = await tx.product.updateMany({
         where: {
@@ -185,7 +197,7 @@ export class OrdersService {
     idempotencyKey: string,
     total: Prisma.Decimal,
     cart: CheckoutCart,
-  ) {
+  ): Promise<{ id: string }> {
     return tx.order.create({
       data: {
         userId,
@@ -201,10 +213,29 @@ export class OrdersService {
           })),
         },
       },
-      include: {
-        items: true,
+      select: {
+        id: true,
       },
     });
+  }
+
+  private async getOrderWithRelationsOrThrow(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<OrderWithItemsAndLedger> {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: true,
+        ledgerEntries: true,
+      },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order could not be loaded after checkout');
+    }
+
+    return order;
   }
 
   private createDebitLedgerEntry(
@@ -214,7 +245,7 @@ export class OrdersService {
     total: Prisma.Decimal,
     balanceAfter: Prisma.Decimal,
     idempotencyKey: string,
-  ) {
+  ): Promise<Prisma.LedgerEntryGetPayload<Record<string, never>>> {
     return tx.ledgerEntry.create({
       data: {
         walletId,
@@ -230,7 +261,10 @@ export class OrdersService {
     });
   }
 
-  private clearCart(tx: Prisma.TransactionClient, cartId: string) {
+  private clearCart(
+    tx: Prisma.TransactionClient,
+    cartId: string,
+  ): Promise<Prisma.BatchPayload> {
     return tx.cartItem.deleteMany({
       where: { cartId },
     });

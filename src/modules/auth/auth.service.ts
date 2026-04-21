@@ -8,8 +8,9 @@ import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
-import { UserRole } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
 import { LoginRateLimiterService } from './rate-limit/login-rate-limiter.service';
+import { AuthResponseDto } from './dto/auth-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -19,7 +20,7 @@ export class AuthService {
     private readonly loginRateLimiter: LoginRateLimiterService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto): Promise<AuthResponseDto> {
     const email = this.normalizeEmail(dto.email);
     await this.assertEmailIsAvailable(email);
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -32,7 +33,7 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto): Promise<AuthResponseDto> {
     const email = this.normalizeEmail(dto.email);
     await this.loginRateLimiter.consume(email);
 
@@ -53,11 +54,11 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  private normalizeEmail(email: string) {
+  private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
   }
 
-  private async assertEmailIsAvailable(email: string) {
+  private async assertEmailIsAvailable(email: string): Promise<void> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -71,7 +72,7 @@ export class AuthService {
     name: string,
     email: string,
     passwordHash: string,
-  ) {
+  ): Promise<User> {
     return this.prisma.user.create({
       data: {
         name,
@@ -92,7 +93,7 @@ export class AuthService {
     email: string;
     role: UserRole;
     name: string;
-  }) {
+  }): AuthResponseDto {
     const payload = {
       sub: user.id,
       email: user.email,

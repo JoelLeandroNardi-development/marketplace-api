@@ -1,10 +1,19 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CartService } from './cart.service';
+import {
+  ApiBadRequestResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { CartItemRecord, CartService, CartWithItems } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { Authenticated } from '../auth/decorators/authenticated.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
+import {
+  AddCartItemResponseDto,
+  CartResponseDto,
+} from './dto/cart-response.dto';
 
 @ApiTags('Cart')
 @Authenticated()
@@ -14,13 +23,27 @@ export class CartController {
 
   @Get()
   @ApiOperation({ summary: 'Get current user cart' })
-  getCart(@CurrentUser() user: AuthenticatedUser) {
+  @ApiOkResponse({
+    description: 'Current authenticated user cart',
+    type: CartResponseDto,
+  })
+  getCart(@CurrentUser() user: AuthenticatedUser): Promise<CartWithItems> {
     return this.cartService.getCartByUser(user.id);
   }
 
   @Post('items')
   @ApiOperation({ summary: 'Add item to cart' })
-  addItem(@CurrentUser() user: AuthenticatedUser, @Body() dto: AddCartItemDto) {
+  @ApiOkResponse({
+    description: 'Cart item after quantity merge or creation',
+    type: AddCartItemResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Product is missing, inactive, or quantity exceeds stock',
+  })
+  addItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AddCartItemDto,
+  ): Promise<CartItemRecord> {
     return this.cartService.addItem(user.id, dto);
   }
 }

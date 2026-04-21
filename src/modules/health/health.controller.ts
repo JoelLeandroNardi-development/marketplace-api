@@ -1,6 +1,16 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PrismaService } from '../../database/prisma/prisma.service';
+import {
+  LivenessResponseDto,
+  ReadinessErrorResponseDto,
+  ReadinessResponseDto,
+} from './dto/health-response.dto';
 
 @ApiTags('Health')
 @Controller('health')
@@ -9,7 +19,11 @@ export class HealthController {
 
   @Get()
   @ApiOperation({ summary: 'Liveness check' })
-  liveness() {
+  @ApiOkResponse({
+    description: 'Service process is alive',
+    type: LivenessResponseDto,
+  })
+  liveness(): LivenessResponseDto {
     return {
       status: 'ok',
       uptime: process.uptime(),
@@ -19,7 +33,15 @@ export class HealthController {
 
   @Get('ready')
   @ApiOperation({ summary: 'Readiness check' })
-  async readiness() {
+  @ApiOkResponse({
+    description: 'Dependencies required to serve traffic are healthy',
+    type: ReadinessResponseDto,
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'One or more dependencies are unavailable',
+    type: ReadinessErrorResponseDto,
+  })
+  async readiness(): Promise<ReadinessResponseDto> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
 

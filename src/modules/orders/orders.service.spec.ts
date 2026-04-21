@@ -65,7 +65,11 @@ describe('OrdersService', () => {
   });
 
   it('checks out a cart by decrementing stock and wallet balance atomically', async () => {
-    tx.order.findUnique.mockResolvedValue(null);
+    tx.order.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 'order-1',
+      items: [],
+      ledgerEntries: [],
+    });
     tx.cart.findUnique.mockResolvedValue({
       id: 'cart-1',
       items: [
@@ -96,7 +100,7 @@ describe('OrdersService', () => {
 
     const result = await service.createFromCart('user-1', 'checkout-1');
 
-    expect(result).toEqual({ id: 'order-1' });
+    expect(result.id).toBe('order-1');
     const orderCreateCalls = tx.order.create.mock.calls as [
       {
         data: {

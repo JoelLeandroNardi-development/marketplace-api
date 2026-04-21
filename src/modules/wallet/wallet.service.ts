@@ -4,11 +4,21 @@ import { buildScopedIdempotencyKey } from '../../common/idempotency/idempotency-
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { DepositDto } from './dto/deposit.dto';
 
+export type WalletWithEntries = Prisma.WalletGetPayload<{
+  include: {
+    entries: true;
+  };
+}>;
+
+export type WalletLedgerEntry = Prisma.LedgerEntryGetPayload<
+  Record<string, never>
+>;
+
 @Injectable()
 export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
-  getWallet(userId: string) {
+  getWallet(userId: string): Promise<WalletWithEntries> {
     return this.prisma.wallet.upsert({
       where: { userId },
       update: {},
@@ -22,7 +32,11 @@ export class WalletService {
     });
   }
 
-  async deposit(userId: string, dto: DepositDto, idempotencyKey: string) {
+  async deposit(
+    userId: string,
+    dto: DepositDto,
+    idempotencyKey: string,
+  ): Promise<WalletLedgerEntry> {
     const scopedIdempotencyKey = buildScopedIdempotencyKey(
       'deposit',
       idempotencyKey,

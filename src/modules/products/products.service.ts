@@ -4,20 +4,41 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { Prisma } from '@prisma/client';
 
+export type ProductWithCategory = Prisma.ProductGetPayload<{
+  include: {
+    category: true;
+  };
+}>;
+
+interface ProductsPaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedProductsResponse {
+  data: ProductWithCategory[];
+  meta: ProductsPaginationMeta;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateProductDto) {
+  create(dto: CreateProductDto): Promise<ProductWithCategory> {
     return this.prisma.product.create({
       data: {
         ...dto,
         price: new Prisma.Decimal(dto.price),
       },
+      include: {
+        category: true,
+      },
     });
   }
 
-  async findAll(query: QueryProductsDto) {
+  async findAll(query: QueryProductsDto): Promise<PaginatedProductsResponse> {
     const { page, limit } = query;
     const skip = (page - 1) * limit;
     const where = this.buildFindAllWhere(query);
@@ -39,7 +60,7 @@ export class ProductsService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<ProductWithCategory> {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: { category: true },
@@ -67,7 +88,11 @@ export class ProductsService {
     };
   }
 
-  private buildPaginationMeta(total: number, page: number, limit: number) {
+  private buildPaginationMeta(
+    total: number,
+    page: number,
+    limit: number,
+  ): ProductsPaginationMeta {
     return {
       total,
       page,

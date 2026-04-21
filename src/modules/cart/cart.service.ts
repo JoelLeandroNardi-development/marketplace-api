@@ -1,14 +1,29 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
+import { Prisma } from '@prisma/client';
+
+export type CartWithItems = Prisma.CartGetPayload<{
+  include: {
+    items: {
+      include: {
+        product: true;
+      };
+    };
+  };
+}>;
+
+export type CartItemRecord = Prisma.CartItemGetPayload<Record<string, never>>;
 
 @Injectable()
 export class CartService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getCartByUser(userId: string) {
-    return this.prisma.cart.findUnique({
+  async getCartByUser(userId: string): Promise<CartWithItems> {
+    return this.prisma.cart.upsert({
       where: { userId },
+      update: {},
+      create: { userId },
       include: {
         items: {
           include: {
@@ -19,7 +34,7 @@ export class CartService {
     });
   }
 
-  async addItem(userId: string, dto: AddCartItemDto) {
+  async addItem(userId: string, dto: AddCartItemDto): Promise<CartItemRecord> {
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { id: dto.productId },

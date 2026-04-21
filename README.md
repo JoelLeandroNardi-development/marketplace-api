@@ -27,6 +27,18 @@ Swagger is available at:
 http://localhost:3000/docs
 ```
 
+The raw OpenAPI document is available at:
+
+```text
+http://localhost:3000/docs/openapi.json
+```
+
+You can also generate a local `openapi.json` file at the repository root:
+
+```bash
+npm run openapi:generate
+```
+
 The API uses the global `/api` prefix.
 
 ## Useful Commands
@@ -34,6 +46,7 @@ The API uses the global `/api` prefix.
 ```bash
 npm run lint:check
 npm run typecheck
+npm run openapi:generate
 npm run test
 npm run test:e2e
 npm run build
